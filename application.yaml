@@ -1,0 +1,19 @@
+apiVersion: agent.opspresso.com/v1
+kind: Application
+spec:
+  name: e2e-hello
+  repository: nalbam/e2e-hello
+  description: E2E hello Node.js HTTP server
+runtime:
+  port: 8080
+  health: /health
+  build:
+    context: .
+    dockerfile: Dockerfile
+  test:
+    image: node:24-alpine
+    command: npm ci && npm test
+environments:
+  dev:
+    env:
+      LOG_LEVEL: info
