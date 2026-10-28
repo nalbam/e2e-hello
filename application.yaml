@@ -18,5 +18,8 @@ environments:
   dev:
     env:
       LOG_LEVEL: info
+    resources:
+      - name: main
+        class: postgres
   prod:
     replicas: 1
