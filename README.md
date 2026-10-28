@@ -40,3 +40,5 @@ npm test
 docker build -t e2e-hello .
 docker run --rm -p 8080:8080 e2e-hello
 ```
+
+배포 환경은 `application.yaml`에 dev 환경과 함께 prod 환경(replicas 1)도 선언되어 있습니다.

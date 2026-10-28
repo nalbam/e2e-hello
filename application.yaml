@@ -2,6 +2,7 @@ apiVersion: agent.opspresso.com/v1
 kind: Application
 spec:
   name: e2e-hello
+  owner: dBT43yQ7DQIIIMlYbjiXsIr8tbuIgVJA
   repository: nalbam/e2e-hello
   description: E2E hello Node.js HTTP server
 runtime:
@@ -17,3 +18,5 @@ environments:
   dev:
     env:
       LOG_LEVEL: info
+  prod:
+    replicas: 1
