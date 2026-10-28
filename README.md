@@ -6,6 +6,8 @@ E2E hello Node.js HTTP server
 
 E2E 검증용 최소 Node.js HTTP 서버입니다. 외부 npm 의존성 없이 Node.js 내장 모듈만 사용하며, `/health` 헬스체크 엔드포인트를 제공합니다.
 
+홈 페이지(`GET /`)는 외부 리소스 없이 인라인 CSS만 쓰는 자체 완결 HTML로, 앱 소개·서비스 상태·엔드포인트 목록을 보여줍니다.
+
 ## 실행
 
 ```sh
@@ -30,6 +32,8 @@ npm test
 
 | 메서드 | 경로 | 응답 |
 | --- | --- | --- |
+| `GET`, `HEAD` | `/` | `200`, `text/html` 홈 페이지 (앱 소개·상태·엔드포인트 목록) |
+| 그 외 | `/` | `405 Method Not Allowed` (`allow: GET, HEAD`) |
 | `GET` | `/health` | `200`, `application/json`, `{"ok":true}` |
 | 그 외 | `/health` | `405 Method Not Allowed` |
 | 전체 | 그 외 경로 | `404 Not Found` |
