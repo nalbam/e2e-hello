@@ -19,7 +19,7 @@ environments:
     env:
       LOG_LEVEL: info
     resources:
-      - name: main
+      - name: e2e-hello
         class: postgres
   prod:
     replicas: 1

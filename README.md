@@ -43,7 +43,7 @@ CREATE TABLE IF NOT EXISTS todos (
 
 ### dev PostgreSQL
 
-`application.yaml`의 `environments.dev.resources`에 PostgreSQL 리소스 `main`(`class: postgres`)이 선언되어 있습니다. dev 배포 시 Agent Delivery가 `DATABASE_URL`, `PGHOST`, `PGPORT`, `PGDATABASE`, `PGUSER`, `PGPASSWORD`를 주입하며, 앱은 `DATABASE_URL`을 사용해 PostgreSQL 모드로 동작합니다. prod 환경에는 데이터베이스 리소스가 없으므로 메모리 모드로 동작합니다.
+`application.yaml`의 `environments.dev.resources`에 PostgreSQL 리소스 `e2e-hello`(`class: postgres`, Project 이름과 같아 Variable에 접두어가 없음)가 선언되어 있습니다. dev 배포 시 Agent Delivery가 `DATABASE_URL`, `PGHOST`, `PGPORT`, `PGDATABASE`, `PGUSER`, `PGPASSWORD`를 주입하며, 앱은 `DATABASE_URL`을 사용해 PostgreSQL 모드로 동작합니다. prod 환경에는 데이터베이스 리소스가 없으므로 메모리 모드로 동작합니다.
 
 ## 테스트
 
