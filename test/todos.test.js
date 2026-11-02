@@ -1,13 +1,16 @@
 import { test, before, after } from 'node:test';
 import assert from 'node:assert/strict';
 import { createServer } from '../app.js';
-import { createMemoryStore } from '../store.js';
+import { createPostgresStore } from '../store.js';
+import { createFakePool } from './fake-pg.js';
 
 let server;
 let baseUrl;
 
 before(async () => {
-  server = createServer({ store: createMemoryStore() });
+  const store = createPostgresStore(createFakePool());
+  await store.init();
+  server = createServer({ store });
   await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve));
   baseUrl = `http://127.0.0.1:${server.address().port}`;
 });

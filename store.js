@@ -1,96 +1,87 @@
-import { createClient } from 'redis';
+import pg from 'pg';
 
-const TODOS = 'todos';
-const NEXT_ID = 'todos:next-id';
+export const DATABASE_URL_ENV = 'E2E_HELLO_DB_DATABASE_URL';
 
-// The merge runs in Valkey, so two concurrent updates of one todo cannot lose a field.
-const UPDATE = `
-local stored = redis.call('HGET', KEYS[1], ARGV[1])
-if not stored then return false end
-local todo = cjson.decode(stored)
-for field, value in pairs(cjson.decode(ARGV[2])) do todo[field] = value end
-local updated = cjson.encode(todo)
-redis.call('HSET', KEYS[1], ARGV[1], updated)
-return updated`;
+// Serializes schema setup across replicas starting at the same time.
+const MIGRATION_LOCK_ID = 7_243_001;
 
-export function createMemoryStore() {
-  let nextId = 1;
-  const todos = new Map();
+export const CREATE_TABLE = `CREATE TABLE IF NOT EXISTS todos (
+  id bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+  title text NOT NULL,
+  done boolean NOT NULL DEFAULT false,
+  created_at timestamptz NOT NULL DEFAULT now()
+)`;
 
+const COLUMNS = 'id, title, done, created_at';
+
+function toTodo(row) {
   return {
-    kind: 'memory',
-    async init() {},
-    async health() {
-      return true;
-    },
-    async list() {
-      return [...todos.values()].map((todo) => ({ ...todo }));
-    },
-    async create(title) {
-      const todo = { id: nextId++, title, done: false, createdAt: new Date().toISOString() };
-      todos.set(todo.id, todo);
-      return { ...todo };
-    },
-    async update(id, patch) {
-      const todo = todos.get(id);
-      if (!todo) return null;
-      if (patch.title !== undefined) todo.title = patch.title;
-      if (patch.done !== undefined) todo.done = patch.done;
-      return { ...todo };
-    },
-    async remove(id) {
-      return todos.delete(id);
-    },
-    async close() {},
+    id: Number(row.id),
+    title: row.title,
+    done: row.done,
+    createdAt: new Date(row.created_at).toISOString(),
   };
 }
 
-export function createValkeyStore(client) {
-  client.on('error', (err) => {
-    console.error(`valkey client error (${err.code ?? 'unknown'})`);
+export function createPostgresStore(pool) {
+  pool.on('error', (err) => {
+    console.error(`postgres pool error (${err.code ?? 'unknown'})`);
   });
 
   return {
-    kind: 'valkey',
+    kind: 'postgres',
     async init() {
+      const client = await pool.connect();
       try {
-        await client.connect();
-        console.log('valkey connected');
+        await client.query('BEGIN');
+        await client.query('SELECT pg_advisory_xact_lock($1)', [MIGRATION_LOCK_ID]);
+        await client.query(CREATE_TABLE);
+        await client.query('COMMIT');
       } catch (err) {
-        console.error(`valkey connection failed (${err.code ?? 'unknown'})`);
+        await client.query('ROLLBACK').catch(() => {});
+        throw err;
+      } finally {
+        client.release();
       }
     },
     async health() {
       try {
-        return (await client.ping()) === 'PONG';
+        await pool.query('SELECT 1');
+        return true;
       } catch {
         return false;
       }
     },
     async list() {
-      const stored = await client.hVals(TODOS);
-      return stored.map((todo) => JSON.parse(todo)).sort((a, b) => a.id - b.id);
+      const { rows } = await pool.query(`SELECT ${COLUMNS} FROM todos ORDER BY id ASC`);
+      return rows.map(toTodo);
     },
     async create(title) {
-      const id = await client.incr(NEXT_ID);
-      const todo = { id, title, done: false, createdAt: new Date().toISOString() };
-      await client.hSet(TODOS, String(id), JSON.stringify(todo));
-      return todo;
+      const { rows } = await pool.query(`INSERT INTO todos (title) VALUES ($1) RETURNING ${COLUMNS}`, [title]);
+      return toTodo(rows[0]);
     },
+    // A single UPDATE merges the patch under the row lock, so concurrent updates cannot lose a field.
     async update(id, patch) {
-      const updated = await client.eval(UPDATE, { keys: [TODOS], arguments: [String(id), JSON.stringify(patch)] });
-      return updated ? JSON.parse(updated) : null;
+      const { rows } = await pool.query(
+        `UPDATE todos SET title = COALESCE($2, title), done = COALESCE($3, done) WHERE id = $1 RETURNING ${COLUMNS}`,
+        [id, patch.title ?? null, patch.done ?? null],
+      );
+      return rows.length > 0 ? toTodo(rows[0]) : null;
     },
     async remove(id) {
-      return (await client.hDel(TODOS, String(id))) > 0;
+      const { rowCount } = await pool.query('DELETE FROM todos WHERE id = $1', [id]);
+      return rowCount > 0;
     },
     async close() {
-      if (client.isOpen) client.destroy();
+      await pool.end();
     },
   };
 }
 
 export function createStoreFromEnv(env = process.env) {
-  if (!env.VALKEY_URL) return createMemoryStore();
-  return createValkeyStore(createClient({ url: env.VALKEY_URL, disableOfflineQueue: true, socket: { connectTimeout: 5000 } }));
+  const connectionString = env[DATABASE_URL_ENV];
+  if (!connectionString) {
+    throw new Error(`${DATABASE_URL_ENV} is required (PostgreSQL connection URL)`);
+  }
+  return createPostgresStore(new pg.Pool({ connectionString, connectionTimeoutMillis: 5000 }));
 }

@@ -1,5 +1,4 @@
 import http from 'node:http';
-import { createMemoryStore } from './store.js';
 import { todosPage } from './todos-page.js';
 
 export const MAX_BODY_BYTES = 16 * 1024;
@@ -160,7 +159,8 @@ async function route(req, res, store) {
   res.end();
 }
 
-export function createServer({ store = createMemoryStore() } = {}) {
+export function createServer({ store } = {}) {
+  if (!store) throw new Error('createServer requires a store');
   return http.createServer((req, res) => {
     route(req, res, store).catch((err) => {
       if (res.headersSent) {
