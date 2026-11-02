@@ -145,7 +145,7 @@ async function route(req, res, store) {
   const { pathname } = new URL(req.url ?? '/', 'http://localhost');
 
   if (pathname === '/health') return handleHealth(req, res, store);
-  if (pathname === '/todos') return handleTodosPage(req, res);
+  if (pathname === '/' || pathname === '/todos') return handleTodosPage(req, res);
   if (pathname === '/api/todos') return handleTodos(req, res, store);
 
   const match = /^\/api\/todos\/([^/]+)$/.exec(pathname);

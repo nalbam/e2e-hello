@@ -89,6 +89,7 @@ DATABASE_URL='postgres://postgres:dev@localhost:5432/e2e_hello_test' npm test
 | --- | --- | --- |
 | `GET` | `/health` | 매 요청마다 `SELECT 1` 실행. 성공 시 `200` `{"ok":true,"storage":"postgres"}`, DB 오류 시 `503` `{"ok":false}` |
 | 그 외 | `/health` | `405 Method Not Allowed` |
+| `GET`, `HEAD` | `/` | `200` Todo HTML 페이지 (redirect 없음, `/todos`와 동일, 그 외 메서드 `405` `allow: GET, HEAD`) |
 | `GET`, `HEAD` | `/todos` | `200` Todo HTML 페이지 (그 외 메서드 `405`) |
 | `GET` | `/api/todos` | `200` Todo 배열 (`id` 오름차순) |
 | `POST` | `/api/todos` | `201` 생성된 Todo |

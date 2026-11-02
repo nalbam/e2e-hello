@@ -172,6 +172,30 @@ test('GET /todos returns self-contained HTML page', async () => {
   assert.equal(await head.text(), '');
 });
 
+test('GET / serves the same Todo page as /todos without redirect', async () => {
+  const root = await fetch(`${baseUrl}/`, { redirect: 'manual' });
+  const todos = await fetch(`${baseUrl}/todos`);
+  assert.equal(root.status, 200);
+  assert.equal(root.headers.get('location'), null);
+  assert.equal(root.headers.get('content-type'), 'text/html; charset=utf-8');
+  assert.equal(root.headers.get('content-type'), todos.headers.get('content-type'));
+  assert.equal(await root.text(), await todos.text());
+});
+
+test('HEAD / returns 200 with empty body', async () => {
+  const res = await fetch(`${baseUrl}/`, { method: 'HEAD', redirect: 'manual' });
+  assert.equal(res.status, 200);
+  assert.equal(res.headers.get('location'), null);
+  assert.equal(await res.text(), '');
+});
+
+test('POST / returns 405 with allow header', async () => {
+  const res = await fetch(`${baseUrl}/`, { method: 'POST' });
+  assert.equal(res.status, 405);
+  assert.equal(res.headers.get('allow'), 'GET, HEAD');
+  await res.arrayBuffer();
+});
+
 test('unknown api path returns 404', async () => {
   const res = await fetch(`${baseUrl}/api/todos/1/extra`);
   assert.equal(res.status, 404);
