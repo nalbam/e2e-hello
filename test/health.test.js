@@ -44,6 +44,24 @@ test('POST /health returns 405', async () => {
   await res.arrayBuffer();
 });
 
+test('GET / returns Hello World', async () => {
+  const res = await fetch(`${baseUrl}/`);
+  assert.equal(res.status, 200);
+  assert.equal(res.headers.get('content-type'), 'text/plain; charset=utf-8');
+  assert.equal(await res.text(), 'Hello World');
+
+  const head = await fetch(`${baseUrl}/`, { method: 'HEAD' });
+  assert.equal(head.status, 200);
+  assert.equal(await head.text(), '');
+});
+
+test('POST / returns 405', async () => {
+  const res = await fetch(`${baseUrl}/`, { method: 'POST' });
+  assert.equal(res.status, 405);
+  assert.equal(res.headers.get('allow'), 'GET, HEAD');
+  await res.arrayBuffer();
+});
+
 test('unknown path returns 404', async () => {
   const res = await fetch(`${baseUrl}/unknown`);
   assert.equal(res.status, 404);

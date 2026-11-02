@@ -142,9 +142,20 @@ function handleTodosPage(req, res) {
   res.end(req.method === 'HEAD' ? undefined : todosPage);
 }
 
+function handleHome(req, res) {
+  if (req.method !== 'GET' && req.method !== 'HEAD') return methodNotAllowed(res, 'GET, HEAD', false);
+  const body = 'Hello World';
+  res.writeHead(200, {
+    'content-type': 'text/plain; charset=utf-8',
+    'content-length': Buffer.byteLength(body),
+  });
+  res.end(req.method === 'HEAD' ? undefined : body);
+}
+
 async function route(req, res, store) {
   const { pathname } = new URL(req.url ?? '/', 'http://localhost');
 
+  if (pathname === '/') return handleHome(req, res);
   if (pathname === '/health') return handleHealth(req, res, store);
   if (pathname === '/todos') return handleTodosPage(req, res);
   if (pathname === '/api/todos') return handleTodos(req, res, store);

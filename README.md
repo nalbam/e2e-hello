@@ -46,6 +46,7 @@ npm test
 
 | 메서드 | 경로 | 응답 |
 | --- | --- | --- |
+| `GET`, `HEAD` | `/` | `200` `text/plain` `Hello World` (그 외 메서드 `405`) |
 | `GET` | `/health` | `200` `{"ok":true,"storage":"valkey"\|"memory"}`, DB 점검 실패 시 `503` `{"ok":false}` |
 | 그 외 | `/health` | `405 Method Not Allowed` |
 | `GET`, `HEAD` | `/todos` | `200` Todo HTML 페이지 (그 외 메서드 `405`) |
