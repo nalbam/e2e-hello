@@ -1,11 +1,17 @@
-import pg from 'pg';
+import { createClient } from 'redis';
 
-const MIGRATION = `CREATE TABLE IF NOT EXISTS todos (
-  id bigserial PRIMARY KEY,
-  title text NOT NULL,
-  done boolean NOT NULL DEFAULT false,
-  created_at timestamptz NOT NULL DEFAULT now()
-)`;
+const TODOS = 'todos';
+const NEXT_ID = 'todos:next-id';
+
+// The merge runs in Valkey, so two concurrent updates of one todo cannot lose a field.
+const UPDATE = `
+local stored = redis.call('HGET', KEYS[1], ARGV[1])
+if not stored then return false end
+local todo = cjson.decode(stored)
+for field, value in pairs(cjson.decode(ARGV[2])) do todo[field] = value end
+local updated = cjson.encode(todo)
+redis.call('HSET', KEYS[1], ARGV[1], updated)
+return updated`;
 
 export function createMemoryStore() {
   let nextId = 1;
@@ -39,96 +45,52 @@ export function createMemoryStore() {
   };
 }
 
-function toTodo(row) {
-  return {
-    id: Number(row.id),
-    title: row.title,
-    done: row.done,
-    createdAt: new Date(row.created_at).toISOString(),
-  };
-}
-
-export function createPgStore(pool) {
-  let migrated = false;
-  let migrating = null;
-
-  pool.on('error', (err) => {
-    console.error(`postgres pool error (${err.code ?? 'unknown'})`);
+export function createValkeyStore(client) {
+  client.on('error', (err) => {
+    console.error(`valkey client error (${err.code ?? 'unknown'})`);
   });
 
-  function migrate() {
-    if (migrated) return Promise.resolve();
-    migrating ??= pool
-      .query(MIGRATION)
-      .then(() => {
-        migrated = true;
-      })
-      .finally(() => {
-        migrating = null;
-      });
-    return migrating;
-  }
-
   return {
-    kind: 'postgres',
+    kind: 'valkey',
     async init() {
       try {
-        await migrate();
-        console.log('postgres migration complete');
+        await client.connect();
+        console.log('valkey connected');
       } catch (err) {
-        console.error(`postgres migration failed (${err.code ?? 'unknown'})`);
+        console.error(`valkey connection failed (${err.code ?? 'unknown'})`);
       }
     },
     async health() {
       try {
-        await migrate();
-        await pool.query('SELECT 1');
-        return true;
+        return (await client.ping()) === 'PONG';
       } catch {
         return false;
       }
     },
     async list() {
-      const { rows } = await pool.query(
-        'SELECT id, title, done, created_at FROM todos ORDER BY created_at ASC, id ASC',
-      );
-      return rows.map(toTodo);
+      const stored = await client.hVals(TODOS);
+      return stored.map((todo) => JSON.parse(todo)).sort((a, b) => a.id - b.id);
     },
     async create(title) {
-      const { rows } = await pool.query(
-        'INSERT INTO todos (title) VALUES ($1) RETURNING id, title, done, created_at',
-        [title],
-      );
-      return toTodo(rows[0]);
+      const id = await client.incr(NEXT_ID);
+      const todo = { id, title, done: false, createdAt: new Date().toISOString() };
+      await client.hSet(TODOS, String(id), JSON.stringify(todo));
+      return todo;
     },
     async update(id, patch) {
-      const { rows } = await pool.query(
-        `UPDATE todos
-            SET title = COALESCE($2, title),
-                done = COALESCE($3, done)
-          WHERE id = $1
-      RETURNING id, title, done, created_at`,
-        [id, patch.title ?? null, patch.done ?? null],
-      );
-      return rows[0] ? toTodo(rows[0]) : null;
+      const updated = await client.eval(UPDATE, { keys: [TODOS], arguments: [String(id), JSON.stringify(patch)] });
+      return updated ? JSON.parse(updated) : null;
     },
     async remove(id) {
-      const { rowCount } = await pool.query('DELETE FROM todos WHERE id = $1', [id]);
-      return rowCount > 0;
+      return (await client.hDel(TODOS, String(id))) > 0;
     },
     async close() {
-      await pool.end();
+      if (client.isOpen) client.destroy();
     },
   };
 }
 
 export function createStoreFromEnv(env = process.env) {
-  if (!env.DB_DATABASE_URL) return createMemoryStore();
-  const pool = new pg.Pool({
-    connectionString: env.DB_DATABASE_URL,
-    max: 5,
-    connectionTimeoutMillis: 5000,
-    idleTimeoutMillis: 30000,
-  });
-  return createPgStore(pool);
+  if (!env.VALKEY_URL) return createMemoryStore();
+  return createValkeyStore(createClient({ url: env.VALKEY_URL, disableOfflineQueue: true, socket: { connectTimeout: 5000 } }));
 }

@@ -4,7 +4,7 @@ E2E hello Node.js HTTP server
 
 ## 목적
 
-E2E 검증용 최소 Node.js HTTP 서버입니다. Node.js 내장 모듈과 PostgreSQL 드라이버 `pg`(node-postgres)만 사용하며, `/health` 헬스체크와 간단한 Todo API·페이지를 제공합니다.
+E2E 검증용 최소 Node.js HTTP 서버입니다. Node.js 내장 모듈과 Valkey 클라이언트 `redis`만 사용하며, `/health` 헬스체크와 간단한 Todo API·페이지를 제공합니다.
 
 ## 실행
 
@@ -19,31 +19,20 @@ npm start
 PORT=18080 npm start
 ```
 
-`SIGTERM`/`SIGINT` 수신 시 HTTP 서버와 PostgreSQL 연결 풀을 정상 종료합니다.
+`SIGTERM`/`SIGINT` 수신 시 HTTP 서버와 Valkey 연결을 정상 종료합니다.
 
 ## 저장소 모드
 
 | 모드 | 조건 | 설명 |
 | --- | --- | --- |
-| `postgres` | `DB_DATABASE_URL` 설정됨 | `pg` Pool로 PostgreSQL에 저장합니다. |
-| `memory` | `DB_DATABASE_URL` 없음 | 프로세스 메모리에 저장합니다(로컬·테스트용, 재시작 시 초기화). |
+| `valkey` | `VALKEY_URL` 설정됨 | Valkey의 hash `todos`에 저장합니다. |
+| `memory` | `VALKEY_URL` 없음 | 프로세스 메모리에 저장합니다(로컬·테스트용, 재시작 시 초기화). |
 
-PostgreSQL 모드에서는 시작 시 다음 마이그레이션을 실행합니다. 모든 쿼리는 파라미터화 쿼리를 사용합니다.
+Valkey에 연결할 수 없어도 프로세스는 계속 실행되며 `/health`만 `503`을 반환합니다. 오류 상세나 연결 정보는 응답·로그에 노출하지 않습니다.
 
-```sql
-CREATE TABLE IF NOT EXISTS todos (
-  id bigserial PRIMARY KEY,
-  title text NOT NULL,
-  done boolean NOT NULL DEFAULT false,
-  created_at timestamptz NOT NULL DEFAULT now()
-)
-```
+### Valkey
 
-마이그레이션이 실패해도 프로세스는 계속 실행되며 `/health`만 `503`을 반환합니다. 이후 `/health` 요청 시 마이그레이션을 다시 시도합니다. 오류 상세나 연결 정보는 응답·로그에 노출하지 않습니다.
-
-### PostgreSQL
-
-`application.yaml`은 dev와 prod에 전용 PostgreSQL 리소스 `db`(`class: postgres`)를 선언합니다. 배포 시 Agent Runway가 `DB_DATABASE_URL`, `DB_PGHOST`, `DB_PGPORT`, `DB_PGDATABASE`, `DB_PGUSER`, `DB_PGPASSWORD`를 주입하며, 앱은 `DB_DATABASE_URL`을 사용해 PostgreSQL 모드로 동작합니다.
+`application.yaml`은 dev와 prod에 전용 Valkey 리소스 `e2e-hello`(`class: valkey`)를 선언합니다. 이름이 Project와 같아 Variable에 접두어가 없습니다. 배포 시 Agent Runway가 `VALKEY_URL`, `VALKEY_HOST`, `VALKEY_PORT`, `VALKEY_USERNAME`, `VALKEY_PASSWORD`를 주입합니다.
 
 ## 테스트
 
@@ -51,13 +40,13 @@ CREATE TABLE IF NOT EXISTS todos (
 npm test
 ```
 
-테스트는 `createServer({ store })`에 메모리 저장소를 주입하므로 `DB_DATABASE_URL`이 설정되어 있어도 외부 DB 없이 실행됩니다.
+테스트는 `createServer({ store })`에 메모리 저장소를 주입하므로 `VALKEY_URL`이 설정되어 있어도 외부 DB 없이 실행됩니다.
 
 ## 엔드포인트
 
 | 메서드 | 경로 | 응답 |
 | --- | --- | --- |
-| `GET` | `/health` | `200` `{"ok":true,"storage":"postgres"\|"memory"}`, DB 점검 실패 시 `503` `{"ok":false}` |
+| `GET` | `/health` | `200` `{"ok":true,"storage":"valkey"\|"memory"}`, DB 점검 실패 시 `503` `{"ok":false}` |
 | 그 외 | `/health` | `405 Method Not Allowed` |
 | `GET`, `HEAD` | `/todos` | `200` Todo HTML 페이지 (그 외 메서드 `405`) |
 | `GET` | `/api/todos` | `200` Todo 배열 (`createdAt`, `id` 오름차순) |
@@ -100,6 +89,6 @@ docker build -t e2e-hello .
 docker run --rm -p 8080:8080 e2e-hello
 ```
 
-Dockerfile은 `npm ci` 후 `npm prune --omit=dev`로 production 의존성(`pg`)을 이미지에 포함합니다.
+Dockerfile은 `npm ci` 후 `npm prune --omit=dev`로 production 의존성(`redis`)을 이미지에 포함합니다.
 
 배포 환경은 `application.yaml`에 dev 환경과 함께 prod 환경(replicas 1)도 선언되어 있습니다.
