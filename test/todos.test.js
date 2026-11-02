@@ -1,13 +1,16 @@
 import { test, before, after } from 'node:test';
 import assert from 'node:assert/strict';
 import { createServer } from '../app.js';
-import { createMemoryStore } from '../store.js';
+import { createPostgresStore } from '../store.js';
+import { createFakePool } from './fake-pg.js';
 
 let server;
 let baseUrl;
 
 before(async () => {
-  server = createServer({ store: createMemoryStore() });
+  const store = createPostgresStore(createFakePool());
+  await store.init();
+  server = createServer({ store });
   await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve));
   baseUrl = `http://127.0.0.1:${server.address().port}`;
 });
@@ -167,6 +170,30 @@ test('GET /todos returns self-contained HTML page', async () => {
   const head = await fetch(`${baseUrl}/todos`, { method: 'HEAD' });
   assert.equal(head.status, 200);
   assert.equal(await head.text(), '');
+});
+
+test('GET / serves the same Todo page as /todos without redirect', async () => {
+  const root = await fetch(`${baseUrl}/`, { redirect: 'manual' });
+  const todos = await fetch(`${baseUrl}/todos`);
+  assert.equal(root.status, 200);
+  assert.equal(root.headers.get('location'), null);
+  assert.equal(root.headers.get('content-type'), 'text/html; charset=utf-8');
+  assert.equal(root.headers.get('content-type'), todos.headers.get('content-type'));
+  assert.equal(await root.text(), await todos.text());
+});
+
+test('HEAD / returns 200 with empty body', async () => {
+  const res = await fetch(`${baseUrl}/`, { method: 'HEAD', redirect: 'manual' });
+  assert.equal(res.status, 200);
+  assert.equal(res.headers.get('location'), null);
+  assert.equal(await res.text(), '');
+});
+
+test('POST / returns 405 with allow header', async () => {
+  const res = await fetch(`${baseUrl}/`, { method: 'POST' });
+  assert.equal(res.status, 405);
+  assert.equal(res.headers.get('allow'), 'GET, HEAD');
+  await res.arrayBuffer();
 });
 
 test('unknown api path returns 404', async () => {
