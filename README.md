@@ -25,8 +25,8 @@ PORT=18080 npm start
 
 | 모드 | 조건 | 설명 |
 | --- | --- | --- |
-| `postgres` | `DATABASE_URL` 설정됨 | `pg` Pool로 PostgreSQL에 저장합니다. |
-| `memory` | `DATABASE_URL` 없음 | 프로세스 메모리에 저장합니다(로컬·테스트용, 재시작 시 초기화). |
+| `postgres` | `DB_DATABASE_URL` 설정됨 | `pg` Pool로 PostgreSQL에 저장합니다. |
+| `memory` | `DB_DATABASE_URL` 없음 | 프로세스 메모리에 저장합니다(로컬·테스트용, 재시작 시 초기화). |
 
 PostgreSQL 모드에서는 시작 시 다음 마이그레이션을 실행합니다. 모든 쿼리는 파라미터화 쿼리를 사용합니다.
 
@@ -41,9 +41,9 @@ CREATE TABLE IF NOT EXISTS todos (
 
 마이그레이션이 실패해도 프로세스는 계속 실행되며 `/health`만 `503`을 반환합니다. 이후 `/health` 요청 시 마이그레이션을 다시 시도합니다. 오류 상세나 연결 정보는 응답·로그에 노출하지 않습니다.
 
-### dev PostgreSQL
+### PostgreSQL
 
-`application.yaml`의 `environments.dev.resources`에 PostgreSQL 리소스 `e2e-hello`(`class: postgres`, Project 이름과 같아 Variable에 접두어가 없음)가 선언되어 있습니다. dev 배포 시 Agent Delivery가 `DATABASE_URL`, `PGHOST`, `PGPORT`, `PGDATABASE`, `PGUSER`, `PGPASSWORD`를 주입하며, 앱은 `DATABASE_URL`을 사용해 PostgreSQL 모드로 동작합니다. prod 환경에는 데이터베이스 리소스가 없으므로 메모리 모드로 동작합니다.
+`application.yaml`은 dev와 prod에 전용 PostgreSQL 리소스 `db`(`class: postgres`)를 선언합니다. 배포 시 Agent Runway가 `DB_DATABASE_URL`, `DB_PGHOST`, `DB_PGPORT`, `DB_PGDATABASE`, `DB_PGUSER`, `DB_PGPASSWORD`를 주입하며, 앱은 `DB_DATABASE_URL`을 사용해 PostgreSQL 모드로 동작합니다.
 
 ## 테스트
 
@@ -51,7 +51,7 @@ CREATE TABLE IF NOT EXISTS todos (
 npm test
 ```
 
-테스트는 `createServer({ store })`에 메모리 저장소를 주입하므로 `DATABASE_URL`이 설정되어 있어도 외부 DB 없이 실행됩니다.
+테스트는 `createServer({ store })`에 메모리 저장소를 주입하므로 `DB_DATABASE_URL`이 설정되어 있어도 외부 DB 없이 실행됩니다.
 
 ## 엔드포인트
 

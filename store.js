@@ -123,9 +123,9 @@ export function createPgStore(pool) {
 }
 
 export function createStoreFromEnv(env = process.env) {
-  if (!env.DATABASE_URL) return createMemoryStore();
+  if (!env.DB_DATABASE_URL) return createMemoryStore();
   const pool = new pg.Pool({
-    connectionString: env.DATABASE_URL,
+    connectionString: env.DB_DATABASE_URL,
     max: 5,
     connectionTimeoutMillis: 5000,
     idleTimeoutMillis: 30000,
