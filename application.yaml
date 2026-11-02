@@ -19,10 +19,10 @@ environments:
     env:
       LOG_LEVEL: info
     resources:
-      - name: db
-        class: postgres
+      - name: e2e-hello
+        class: valkey
   prod:
     replicas: 1
     resources:
-      - name: db
-        class: postgres
+      - name: e2e-hello
+        class: valkey
