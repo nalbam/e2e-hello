@@ -77,6 +77,8 @@ npm test
 - `test/server.test.js`: URL 누락·마이그레이션 실패 시 서버가 포트를 열지 않고 종료 코드 `1`로 끝나는지, URL을 출력하지 않는지 검증합니다.
 - `test/health.test.js`, `test/todos.test.js`: `/health`와 Todo API·페이지 계약을 검증합니다.
 
+GitHub Actions(`.github/workflows/ci.yml`)는 PR과 `main` push에서 PostgreSQL을 띄워 통합 테스트까지 실행하고 Docker 이미지를 빌드합니다.
+
 실제 PostgreSQL 통합 테스트(`test/postgres.integration.test.js`)는 `DATABASE_URL`이 설정된 경우에만 실행되고, 없으면 skip됩니다. 이 테스트는 해당 데이터베이스에 `todos` 테이블을 만들고 자신이 만든 행만 삭제하므로 일회용 테스트 데이터베이스를 사용하세요.
 
 ```sh
