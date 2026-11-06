@@ -1,7 +1,7 @@
 apiVersion: agent.opspresso.com/v1
 kind: Application
 spec:
-  name: e2e-hello
+  name: e2e-hello-2
   owner: dBT43yQ7DQIIIMlYbjiXsIr8tbuIgVJA
   repository: nalbam/e2e-hello
   description: E2E hello Node.js HTTP server
