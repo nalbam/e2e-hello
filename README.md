@@ -137,3 +137,4 @@ docker run --rm -p 8080:8080 -e E2E_HELLO_DB_DATABASE_URL='postgres://...' e2e-h
 Dockerfile은 `npm ci` 후 `npm prune --omit=dev`로 production 의존성(`pg`)을 이미지에 포함합니다.
 
 배포 환경은 `application.yaml`에 dev 환경과 함께 prod 환경(replicas 1)도 선언되어 있으며, 두 환경 모두 `e2e-hello-db` PostgreSQL 리소스를 사용합니다.
+e2e-chat-20261112a
